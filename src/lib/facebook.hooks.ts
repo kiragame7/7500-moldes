@@ -108,7 +108,7 @@ export function getCheckoutEventId(plan: string): string {
     .trim()
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-");
-  return `checkout:${normalizedPlan}:${externalId}`;
+  return `checkout:${normalizedPlan}:${externalId}:${createFallbackId()}`;
 }
 
 export const useFacebookConversions = () => {
