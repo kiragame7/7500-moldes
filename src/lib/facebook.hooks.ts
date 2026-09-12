@@ -117,18 +117,6 @@ export function getViewContentEventId(section: string): string {
     .trim()
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-");
-  const sessionKey = `moldes_view_session_${normalizedSection}`;
-  if (typeof window !== "undefined") {
-    try {
-      const existing = window.sessionStorage.getItem(sessionKey);
-      if (existing) return `viewcontent:${normalizedSection}:${externalId}:${existing}`;
-      const token = createFallbackId();
-      window.sessionStorage.setItem(sessionKey, token);
-      return `viewcontent:${normalizedSection}:${externalId}:${token}`;
-    } catch {
-      // Tracking must never break the offer page.
-    }
-  }
   return `viewcontent:${normalizedSection}:${externalId}:${createFallbackId()}`;
 }
 
