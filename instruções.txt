@@ -1,307 +1,608 @@
-Quero que você faça uma auditoria e correção completa do tracking da Meta nesta aplicação.
+Quero que você faça uma auditoria e correção cuidadosa da implementação de Meta Pixel + Conversions API (CAPI) desta aplicação.
 
-IMPORTANTE: antes de alterar qualquer coisa, analise toda a implementação atual de Pixel, CAPI, UTMify, eventos e funções relacionadas. Não faça mudanças cegas.
+ATENÇÃO:
+Não faça alterações cegamente.
+Primeiro analise o projeto inteiro e entenda como cada evento é gerado, enviado pelo navegador, enviado pelo servidor e deduplicado.
+Depois faça somente as alterações necessárias.
+Não altere design, copy, links, preços, UTMs ou lógica comercial da página.
 
-CONTEXTO DO PROBLEMA
+==================================================
+CONTEXTO ATUAL
+==================================================
 
-Estou usando uma página de vendas hospedada em Vercel e atualmente tenho uma implementação própria de Meta Pixel + Conversions API (CAPI).
+A aplicação é uma página de vendas hospedada em Vercel.
 
-Também existe o script do UTMify na página.
+Estou usando:
 
-Ao testar a página no Meta Events Manager, estou vendo vários eventos Processados e Desduplicados para a mesma ação.
+1. Minha implementação própria de Meta Pixel + CAPI.
+2. UTMify para UTMs/atribuição e funcionalidades relacionadas.
+3. TiDB como banco.
 
-Por exemplo, no evento InitiateCheckout, o Events Manager mostrou várias entradas com a mesma identificação:
+O objetivo é ter uma implementação limpa em que exista UMA única fonte de verdade para os eventos da Meta.
 
-checkout:premium:moldes_0f366440-014a-4f77-9dac-8ecf83387417
-
-Algumas aparecem como:
-
-- Servidor → Processado
-- Servidor → Processado
-- Servidor → Desduplicado
-- Navegador → Desduplicado
-- Navegador → Processado
-- Servidor → Desduplicado
-
-Também acontece algo semelhante com ViewContent e SubscribedButtonClick.
-
-A análise da implementação indica que provavelmente existem dois sistemas fazendo tracking da Meta simultaneamente:
-
-1. Minha implementação própria:
-   Browser Pixel
-   +
-   Server-side CAPI
-
-2. UTMify:
-   script próprio de tracking
-   +
-   eventos automáticos
-   +
-   possível envio adicional de eventos para a Meta
-
-O objetivo NÃO é remover o UTMify da página.
-
-Quero continuar usando o UTMify para UTMs, atribuição e funcionalidades relacionadas.
-
-O objetivo é impedir que o UTMify e minha implementação própria fiquem disparando os mesmos eventos da Meta em paralelo.
-
-OBJETIVO FINAL
-
-Quero que exista UMA única fonte de verdade para os eventos da Meta.
-
-Minha implementação própria deve ser responsável pelos principais eventos da Meta:
+Minha implementação própria deve ser responsável pelos eventos principais da Meta, especialmente:
 
 - PageView
 - ViewContent
 - InitiateCheckout
-- outros eventos explicitamente implementados no meu sistema
 
-A estrutura desejada é:
+O UTMify pode continuar instalado para UTMs/atribuição e outras funcionalidades necessárias, mas não quero que ele gere eventos da Meta que dupliquem minha implementação própria.
+
+==================================================
+PROBLEMA OBSERVADO
+==================================================
+
+No Meta Events Manager, durante os testes, encontrei situações como:
+
+ViewContent:
+
+Browser → Processado
+Server  → Processado
+
+com exatamente o mesmo event_id.
+
+Exemplo:
+
+viewcontent:hero:moldes_0f366440-014a-4f77-9dac-8ecf83387417:mtxubzrz_p5askzok9m
+
+Já em alguns testes InitiateCheckout apareceu como:
+
+Browser → Desduplicado
+Server  → Desduplicado
+
+com o mesmo event_id:
+
+checkout:premium:moldes_0f366440-014a-4f77-9dac-8ecf83387417
+
+Também existem eventos automáticos:
+
+SubscribedButtonClick
+
+que aparecem como:
+
+Browser → Processado
+Server  → Processado
+
+com IDs do tipo:
+
+ob3_plugin-set_...
+
+==================================================
+DESCOBERTAS NO CÓDIGO
+==================================================
+
+Ao analisar a implementação atual, encontramos que minha implementação própria de ViewContent está estruturada assim:
+
+trackEvent(
+  'ViewContent',
+  { section: 'Hero' },
+  getViewContentEventId('Hero')
+)
+
+A função getViewContentEventId() cria IDs no formato:
+
+viewcontent:<section>:<external_id>:<token>
+
+e o token é armazenado em sessionStorage.
+
+Depois o trackEvent() usa esse mesmo event_id para:
+
+Browser:
+fbq("track", "ViewContent", ..., { eventID: resolvedEventId })
+
+e também para o envio server-side/CAPI.
+
+Portanto, o fluxo pretendido é:
+
+Browser ViewContent
+        ↓
+event_id X
+
+Server ViewContent
+        ↓
+event_id X
+
+Esse mesmo event_id deve representar a mesma ação e permitir a deduplicação correta pela Meta.
+
+O código também possui proteções contra envio repetido usando sessionStorage e outras proteções server-side.
+
+==================================================
+PROBLEMA IDENTIFICADO COM UTMIFY
+==================================================
+
+No código/script do UTMify existe um ViewContentListener automático.
+
+Ele possui comportamento semelhante a:
+
+ViewContentListener.init()
+
+e existe lógica que dispara:
+
+Tracker.track("ViewContent")
+
+automaticamente após determinado tempo, incluindo aproximadamente 8 segundos.
+
+Também existe lógica automática baseada em scroll.
+
+Ou seja, o UTMify possui mecanismos próprios que podem gerar ViewContent automaticamente.
+
+Além disso, o UTMify gera eventos automáticos do tipo:
+
+SubscribedButtonClick
+
+com IDs:
+
+ob3_plugin-set-...
+
+Esses eventos aparecem no Meta Events Manager como:
+
+Conectado automaticamente
+
+e podem existir tanto no Browser quanto no Server.
+
+==================================================
+IMPORTANTE SOBRE O VIEWCONTENT
+==================================================
+
+O ViewContent que estou analisando no Meta Events Manager possui um event_id no formato:
+
+viewcontent:hero:moldes_<external_id>:<token>
+
+Esse formato corresponde à MINHA implementação própria.
+
+Ou seja:
+
+não quero simplesmente culpar o UTMify pelo par:
+
+Browser ViewContent
++
+Server ViewContent
+
+que utiliza esse event_id.
+
+O UTMify realmente possui ViewContent automático, mas preciso separar claramente:
+
+1. ViewContent automático do UTMify
+2. ViewContent manual da minha implementação própria
+
+Não misture os dois.
+
+==================================================
+OBJETIVO
+==================================================
+
+Quero chegar a uma arquitetura assim:
+
+UMA ação real do usuário:
 
 Browser
-   ↓
+  ↓
 Meta Pixel
-   ↓
-event_id único
+  ↓
+event_id = X
 
-e, quando houver CAPI:
+e:
 
-Browser
-   ↓
-Meta Pixel
-   +
 Server
-   ↓
-Conversions API
-   ↓
-mesmo event_id
-   ↓
-Meta faz a deduplicação Browser/Server
+  ↓
+Meta CAPI
+  ↓
+event_id = X
 
-Ou seja, para uma única ação do usuário, eu quero algo conceitualmente assim:
+A Meta então deve conseguir reconhecer que são o mesmo evento.
 
-1 ação do usuário
+O comportamento esperado é algo conceitualmente como:
 
-Browser → InitiateCheckout → Processado
-Server  → InitiateCheckout → Desduplicado
+Browser → Processado
+Server  → Desduplicado
 
 OU:
 
-Server  → InitiateCheckout → Processado
-Browser → InitiateCheckout → Desduplicado
+Server  → Processado
+Browser → Desduplicado
 
 A ordem pode variar.
 
 O que NÃO quero:
 
-Browser → evento
-Browser → evento
-Server → evento
-Server → evento
-UTMify → evento
-UTMify → evento
+Browser → Processado
+Browser → Processado
+Server  → Processado
+Server  → Processado
 
 para a mesma ação.
 
-TAREFA
+Também não quero utilizar deduplicação da Meta para mascarar múltiplos disparos do mesmo sistema.
 
-1. Audite todo o código relacionado a:
+==================================================
+TAREFA 1 — AUDITAR TODOS OS DISPAROS
+==================================================
 
-- Meta Pixel
-- fbq
-- CAPI
-- event_id
-- InitiateCheckout
-- ViewContent
+Analise o projeto inteiro e identifique exatamente onde são gerados:
+
 - PageView
-- SubscribedButtonClick
-- UTMify
-- scripts externos de tracking
-- listeners de clique
-- listeners de scroll
-- useEffect relacionados a tracking
-- funções server-side que enviam eventos para a Meta
-- qualquer inicialização duplicada do Pixel
-
-2. Descubra exatamente quais partes do projeto estão disparando cada evento.
-
-3. Identifique especificamente se o UTMify está disparando automaticamente:
-
 - ViewContent
 - InitiateCheckout
-- outros eventos da Meta
+- SubscribedButtonClick
+- outros eventos Meta
 
-e se esses eventos estão sendo enviados além da minha implementação própria.
+Procure especificamente por:
 
-4. Mantenha o UTMify funcionando para:
+- fbq()
+- track()
+- trackEvent()
+- CAPI
+- fetch()
+- Supabase/Edge Functions/API
+- listeners
+- useEffect
+- useCallback
+- sessionStorage
+- localStorage
+- timers
+- setTimeout
+- scroll listeners
+- click listeners
+- scripts externos
+- UTMify
+- carregamentos duplicados do Pixel
+- chamadas server-side
+- retries
+- funções acionadas mais de uma vez
+
+Faça um mapa claro:
+
+EVENTO
+→ origem
+→ navegador
+→ servidor
+→ UTMify
+→ event_id
+→ momento do disparo
+
+==================================================
+TAREFA 2 — CORRIGIR O UTMIFY SEM REMOVÊ-LO
+==================================================
+
+NÃO remova o UTMify inteiro.
+
+Quero manter o UTMify funcionando para:
 
 - UTMs
 - atribuição
-- tracking que não duplique minha implementação da Meta
-- funcionalidades que não estejam causando conflito
+- funcionalidades relacionadas a tracking que não conflitem com minha implementação
 
-5. Desative SOMENTE o tracking duplicado da Meta proveniente do UTMify, caso isso seja possível pela implementação atual.
+Porém, desative SOMENTE os mecanismos automáticos que estejam duplicando eventos da Meta que minha implementação própria já controla.
 
-NÃO remova o script do UTMify inteiro sem necessidade.
+Principalmente:
 
-6. Mantenha minha implementação própria de Pixel + CAPI.
+- ViewContent automático por tempo
+- ViewContent automático por scroll
 
-7. Não altere a lógica de negócio da página.
+e qualquer mecanismo equivalente que duplique meus eventos.
 
-8. Não altere links de checkout.
+Não remova funcionalidades do UTMify sem necessidade.
 
-9. Não altere preços.
+Se for tecnicamente impossível desligar somente esses eventos automáticos, explique exatamente por quê antes de escolher a alternativa.
 
-10. Não altere UTMs.
+==================================================
+TAREFA 3 — VIEWCONTENT
+==================================================
 
-11. Não altere o design.
+Audite cuidadosamente o fluxo atual de ViewContent.
 
-12. Não remova eventos que sejam necessários.
+Quero que você confirme:
 
-13. Não altere o event_id atual sem necessidade.
+1. Quem chama ViewContent no navegador.
+2. Quem chama ViewContent no servidor.
+3. Qual event_id é gerado.
+4. Como esse event_id chega ao navegador.
+5. Como esse event_id chega à CAPI.
+6. Se Browser e Server utilizam exatamente o mesmo event_id.
+7. Se existe algum segundo disparo independente.
+8. Se algum listener automático gera outro ViewContent.
+9. Se o mesmo callback pode ser executado duas vezes.
 
-EVENT_ID
+IMPORTANTE:
 
-A implementação atual já utiliza IDs como:
+Não altere a geração do event_id do ViewContent sem necessidade.
 
-checkout:premium:moldes_0f366440-014a-4f77-9dac-8ecf83387417
+Atualmente ele segue o padrão:
 
-e IDs semelhantes para ViewContent.
+viewcontent:<section>:<external_id>:<session_token>
 
-Quero preservar essa lógica de event_id.
+Verifique se essa lógica está adequada.
 
-O mais importante é garantir que:
+==================================================
+TAREFA 4 — INITIATECHECKOUT
+==================================================
 
-Browser Pixel e Server CAPI, quando representam a mesma ação, utilizem o MESMO event_id.
+Audite também o InitiateCheckout.
 
-Por outro lado, ações reais diferentes devem possuir event_id diferentes.
+Atualmente ele utiliza algo semelhante a:
 
-Não quero que você simplesmente crie um ID fixo para cada evento e faça todas as ações compartilharem o mesmo ID.
+checkout:<normalized_plan>:<external_id>
 
-DUPLICAÇÃO
+Preciso que você avalie se esse event_id está sendo reutilizado entre ações diferentes.
 
-Também verifique se existe algum problema dentro da própria implementação customizada que esteja causando múltiplas chamadas do mesmo evento.
+O requisito correto é:
 
-Por exemplo:
+Uma ação real de checkout
+→ um event_id único
 
-- múltiplos useEffect
-- listeners registrados mais de uma vez
-- componentes montados duas vezes
-- callbacks executados mais de uma vez
-- funções chamadas tanto pelo clique quanto por outro listener
-- scripts carregados duas vezes
-- Pixel inicializado mais de uma vez
-- CAPI chamada duas vezes
-- retry/reexecução sem necessidade
+Browser e Server dessa mesma ação
+→ MESMO event_id
 
-A implementação precisa garantir que uma ação real do usuário gere somente uma ocorrência lógica do evento.
+Outra ação real de checkout
+→ OUTRO event_id
 
-IMPORTANTE SOBRE DEDUPLICAÇÃO
+Não quero:
 
-Não quero usar a deduplicação da Meta como desculpa para deixar vários eventos sendo enviados.
+todos os cliques no mesmo plano
+→ mesmo event_id fixo
 
-A Meta deve receber:
+Se necessário, altere a geração do event_id do InitiateCheckout para incluir um identificador único por ocorrência.
 
-1 evento Browser
+Porém, não altere isso simplesmente por precaução:
+primeiro confirme como o código está funcionando.
+
+==================================================
+TAREFA 5 — PAGEVIEW
+==================================================
+
+Audite o PageView.
+
+Existe uma implementação direta do Pixel com algo semelhante a:
+
+pageview:<external_id>
+
+Verifique:
+
+- se Pixel está sendo inicializado mais de uma vez;
+- se PageView é disparado uma única vez por carregamento;
+- se CAPI recebe o mesmo event_id;
+- se existe algum PageView automático adicional;
+- se UTMify está gerando outro PageView;
+- se há conflito entre eventos automáticos e manuais.
+
+==================================================
+TAREFA 6 — SUBSCRIBEDBUTTONCLICK
+==================================================
+
+Audite especificamente:
+
+SubscribedButtonClick
+
+Esse evento está aparecendo como:
+
+Conectado automaticamente
+
+e utiliza IDs:
+
+ob3_plugin-set-...
+
+Quero saber exatamente:
+
+- quem está gerando;
+- por que está sendo enviado;
+- se é UTMify;
+- se é Browser;
+- se é Server;
+- se é um comportamento automático da Meta;
+- se está sendo gerado duas vezes;
+- se ele é necessário para meu tracking.
+
+Não remova automaticamente se tiver função útil.
+
+Mas elimine duplicidade desnecessária.
+
+==================================================
+TAREFA 7 — EVENT_ID
+==================================================
+
+Audite TODA a lógica de event_id.
+
+Requisitos:
+
+1. Browser e Server da mesma ação devem usar o mesmo event_id.
+2. Ações diferentes devem utilizar event_id diferentes.
+3. Não usar um ID fixo para todas as ocorrências de uma ação.
+4. Não usar um ID aleatório diferente no Browser e no Server.
+5. Não criar múltiplos event_id para a mesma ação.
+6. Não depender de deduplicação da Meta para corrigir bug de disparo.
+
+Verifique especialmente:
+
+- sessionStorage
+- geração de tokens
+- funções getViewContentEventId()
+- funções getCheckoutEventId()
+- eventID do fbq
+- event_id enviado para a CAPI
+
+==================================================
+TAREFA 8 — CAPI
+==================================================
+
+Audite o payload server-side.
+
+Confirme que eventos como ViewContent e InitiateCheckout chegam à Meta aproximadamente assim:
+
+{
+  event_name: "...",
+  event_time: ...,
+  event_id: "...",
+  action_source: "website",
+  user_data: ...,
+  custom_data: ...
+}
+
+Confirme que:
+
+event_id
+
+está sendo enviado no campo correto e não apenas armazenado em algum outro campo do payload.
+
+Verifique também:
+
+- retries
+- chamadas repetidas
+- timeouts
+- reexecuções
+- funções chamadas duas vezes
+- qualquer lógica de fallback que possa reenviar o evento
+
+==================================================
+TAREFA 9 — BANCO / TiDB
+==================================================
+
+O banco TiDB possui estas tabelas:
+
+test.conversion_events
+test.purchases
+
+A tabela conversion_events possui:
+
+- id
+- event_name
+- event_id
+- source
+- transaction_id
+- external_id
+- provider_response_id
+- provider_error
+- meta_status
+- meta_attempts
+- meta_last_attempt_at
+- request_id
+- payload_hash
+- created_at
+- updated_at
+
+event_id possui UNIQUE.
+
+A tabela purchases possui:
+
+- external_id
+- external_id_hash
+- hotmart_event_id
+- meta_event_id
+- meta_events_received
+- meta_error
+- last_webhook_at
+- created_at
+- updated_at
+
+Atualmente essas tabelas estão vazias no ambiente de teste.
+
+PORTANTO:
+não assuma que essas tabelas estão sendo usadas para controlar os eventos atuais.
+
+Analise o código para verificar se elas realmente são usadas.
+
+Não implemente uma nova arquitetura de banco sem necessidade.
+
+==================================================
+TAREFA 10 — NÃO ALTERAR O QUE NÃO PRECISA
+==================================================
+
+Não altere:
+
+- design
+- CSS
+- copy
+- preços
+- checkout URL
+- Hotmart
+- UTMs
+- parâmetros de campanha
+- layout
+- componentes visuais
+- fluxo comercial
+
+Exceto se alguma alteração for estritamente necessária para corrigir o tracking.
+
+==================================================
+TAREFA 11 — TESTE PÓS-CORREÇÃO
+==================================================
+
+Depois de implementar as alterações, faça uma auditoria final.
+
+Quero que você verifique especificamente:
+
+A) carregamento inicial
+
+Esperado:
+
+1 PageView lógico
+
+B) ação de ViewContent
+
+Esperado:
+
+1 Browser ViewContent
 +
-1 evento Server
+1 Server ViewContent
 
-quando Browser + CAPI estiverem sendo usados.
+mesmo event_id
 
-A deduplicação deve servir para unir Browser e Server, e não para mascarar múltiplos disparos do mesmo sistema.
+C) InitiateCheckout
 
-VIEWCONTENT
+Esperado:
 
-Audite principalmente o ViewContent.
+1 Browser InitiateCheckout
++
+1 Server InitiateCheckout
 
-Verifique se existem mecanismos automáticos do UTMify ou outros listeners disparando ViewContent por:
+mesmo event_id
 
-- carregamento
-- tempo na página
-- scroll
-- seções específicas
-- interações
+D) UTMify
 
-Caso minha implementação própria já esteja controlando ViewContent, elimine os disparos redundantes.
+Esperado:
 
-INITIATECHECKOUT
+UTMify continuar funcionando para UTMs/atribuição.
 
-Audite principalmente o InitiateCheckout.
+Não quero ViewContent automático concorrendo com meu ViewContent manual.
 
-O evento deve ser disparado quando a ação correspondente realmente acontecer.
+==================================================
+TAREFA 12 — RELATÓRIO FINAL
+==================================================
 
-Não quero múltiplos InitiateCheckout para um único clique.
+Depois da alteração, me informe exatamente:
 
-SUBSCRIBEDBUTTONCLICK
+1. Qual era a origem do problema.
+2. Quais arquivos foram alterados.
+3. Quais funções foram alteradas.
+4. Quais eventos estavam sendo duplicados.
+5. Quais eventos continuam sendo controlados pelo UTMify.
+6. Quais eventos agora são controlados exclusivamente pela minha implementação.
+7. Como ficou o fluxo Browser → Pixel → Server → CAPI.
+8. Como ficou a geração de event_id.
+9. Se o InitiateCheckout agora possui ID único por ocorrência.
+10. Se ViewContent está protegido contra disparos duplicados.
+11. Se PageView é disparado apenas uma vez.
+12. Se SubscribedButtonClick ainda é necessário.
+13. Se existe qualquer possibilidade conhecida de disparo múltiplo.
+14. Se o sistema está pronto para novo teste no Meta Events Manager.
 
-Também audite o SubscribedButtonClick.
+==================================================
+CRITÉRIO FINAL DE SUCESSO
+==================================================
 
-Descubra quem está gerando esse evento e se ele está sendo enviado tanto pelo navegador quanto pelo servidor.
+Depois da correção, uma única ação do usuário deve produzir no máximo:
 
-Se ele estiver vindo de uma implementação automática que não é necessária, remova somente a duplicidade, preservando o que for útil.
+Browser → evento X
+Server  → evento X
 
-PROTEÇÕES
+com o mesmo event_id.
 
-Se já existem mecanismos como sessionStorage, banco de dados, unique constraint ou outras proteções contra duplicidade, preserve-os quando forem úteis.
+A Meta deve conseguir deduplicá-los.
 
-Mas não confie somente nessas proteções.
+O objetivo não é simplesmente fazer aparecer menos linhas no Events Manager.
 
-Corrija a origem da duplicidade.
+O objetivo é corrigir a arquitetura para que cada ação real do usuário gere somente UMA ocorrência lógica por evento, com Browser + Server representando a mesma ocorrência.
 
-BANCO / SERVIDOR
-
-Se houver uma tabela ou mecanismo no servidor para impedir repetição de event_id, verifique se está correto.
-
-Não quero que o servidor simplesmente aceite várias chamadas iguais e dependa da Meta para resolver tudo.
-
-TESTE FINAL
-
-Depois das alterações, faça uma auditoria lógica completa e me mostre:
-
-1. Qual era a origem de cada duplicidade encontrada.
-
-2. O que foi alterado.
-
-3. Quais arquivos foram alterados.
-
-4. Quais eventos agora são disparados pelo meu sistema.
-
-5. Quais eventos deixam de ser disparados automaticamente pelo UTMify.
-
-6. Como ficou o fluxo Browser → Pixel → Server → CAPI.
-
-7. Como ficou a geração de event_id.
-
-8. Se ainda existe algum cenário em que o mesmo evento possa ser enviado duas ou mais vezes.
-
-9. Se o UTMify continua funcionando para UTMs/atribuição.
-
-10. Se a implementação está pronta para teste no Meta Events Manager.
-
-CRITÉRIO DE SUCESSO
-
-Após a correção, ao fazer um teste limpo com uma única visita e um único clique no botão de compra, quero algo aproximadamente assim:
-
-ViewContent:
-Browser → Processado
-Server → Desduplicado
-
-InitiateCheckout:
-Browser → Processado
-Server → Desduplicado
-
-ou a ordem inversa.
-
-Não quero múltiplos eventos Processados do mesmo tipo para uma única ação.
-
-Se houver alguma limitação técnica que impeça desativar somente os eventos automáticos do UTMify, não invente uma solução.
-
-Nesse caso, explique exatamente a limitação e proponha a alternativa menos invasiva.
-
-ANTES DE IMPLEMENTAR:
-faça a auditoria do código e explique brevemente quais são as fontes de tracking encontradas.
-
-DEPOIS DA IMPLEMENTAÇÃO:
-faça uma segunda auditoria para confirmar que não existe mais tracking duplicado.
-
-Não mude nada que não esteja relacionado ao problema de tracking.
+IMPORTANTE:
+Antes de modificar, faça a auditoria.
+Depois de modificar, faça uma segunda auditoria.
+Não diga que está corrigido sem verificar o código final.
