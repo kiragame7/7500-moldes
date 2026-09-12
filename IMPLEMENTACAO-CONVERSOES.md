@@ -26,6 +26,7 @@ Os valores devem ser inseridos no mecanismo de secrets do ambiente de publicaç�
 
 - `HOTMART_WEBHOOK_TOKEN` — valor recebido no header HOTTOK da Hotmart;
 - `META_CAPI_ACCESS_TOKEN` — token privado da Conversions API;
+- `META_TEST_EVENT_CODE` — opcional e temporário, copiado do painel Test Events da Meta; remova depois da validação;
 - `META_PIXEL_ID` e `VITE_META_PIXEL_ID` — ID público do Pixel;
 - `DATABASE_URL` — URL MySQL/TiDB Cloud com SSL, preferencialmente criada pela integração TiDB Cloud da Vercel;
 - `META_GRAPH_API_VERSION` — opcional, com fallback para `v26.0`.

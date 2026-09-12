@@ -12,6 +12,7 @@ export type MetaCapiResult = {
 type MetaUserData = Record<string, unknown>;
 
 type MetaPayload = {
+  test_event_code?: string;
   data: Array<{
     event_name: string;
     event_time: number;
@@ -53,7 +54,11 @@ export async function buildMetaEventPayload(
     ...(input.referrerUrl ? { referrer_url: input.referrerUrl } : {}),
   };
 
-  return { data: [event] };
+  const testEventCode = envFirst("META_TEST_EVENT_CODE");
+  return {
+    ...(testEventCode ? { test_event_code: testEventCode } : {}),
+    data: [event],
+  };
 }
 
 export async function sendMetaEvent(
