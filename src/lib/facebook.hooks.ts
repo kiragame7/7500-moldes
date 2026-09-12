@@ -3,6 +3,7 @@ import { sendFacebookConversionEvent } from "./facebook.functions";
 
 const EXTERNAL_ID_KEY = "moldes_external_id";
 const ATTRIBUTION_KEY = "moldes_attribution_v1";
+const SENT_EVENTS_KEY = "moldes_sent_events_v1";
 const ATTRIBUTION_KEYS = [
   "utm_source",
   "utm_medium",
@@ -123,6 +124,8 @@ export const useFacebookConversions = () => {
     const attribution = getAttribution();
     const resolvedEventId =
       eventId ?? `${eventName.toLowerCase()}:${createFallbackId()}`;
+    if (wasEventSentInSession(resolvedEventId)) return;
+    rememberEventInSession(resolvedEventId);
     const enrichedData = {
       ...customData,
       ...(attribution?.externalId
@@ -185,6 +188,35 @@ export const useFacebookConversions = () => {
 
   return { trackEvent };
 };
+
+function wasEventSentInSession(eventId: string): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    const raw = window.sessionStorage.getItem(SENT_EVENTS_KEY);
+    if (!raw) return false;
+    const events = JSON.parse(raw) as Record<string, number>;
+    const timestamp = events[eventId];
+    return typeof timestamp === "number" && Date.now() - timestamp < 30 * 60 * 1000;
+  } catch {
+    return false;
+  }
+}
+
+function rememberEventInSession(eventId: string): void {
+  if (typeof window === "undefined") return;
+  try {
+    const raw = window.sessionStorage.getItem(SENT_EVENTS_KEY);
+    const events = (raw ? JSON.parse(raw) : {}) as Record<string, number>;
+    const cutoff = Date.now() - 30 * 60 * 1000;
+    for (const [key, timestamp] of Object.entries(events)) {
+      if (typeof timestamp !== "number" || timestamp < cutoff) delete events[key];
+    }
+    events[eventId] = Date.now();
+    window.sessionStorage.setItem(SENT_EVENTS_KEY, JSON.stringify(events));
+  } catch {
+    // Tracking must never break the offer page.
+  }
+}
 
 function readStoredAttribution(): Attribution | undefined {
   if (typeof window === "undefined") return undefined;
