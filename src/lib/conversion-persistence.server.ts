@@ -1,72 +1,166 @@
-import { supabaseAdmin } from "@/integrations/supabase/client.server";
-import type { TablesInsert, TablesUpdate } from "@/integrations/supabase/types";
 import type { NormalizedHotmartEvent, PurchaseStatus } from "./conversions.ts";
 import { sha256 } from "./security.server.ts";
+import {
+  executeSql,
+  isDuplicateKeyError,
+  queryRows,
+  type TidbRow,
+} from "./tidb.server.ts";
 
-export type ConversionEventInsert = TablesInsert<"conversion_events">;
-export type ConversionEventUpdate = TablesUpdate<"conversion_events">;
+export type ConversionEventInsert = {
+  event_name: string;
+  event_id: string;
+  source: "browser" | "hotmart" | "meta_capi";
+  transaction_id?: string | null;
+  external_id?: string | null;
+  event_source_url?: string | null;
+  referrer_url?: string | null;
+  event_time: string;
+  received_at?: string;
+  value?: number | null;
+  currency?: string | null;
+  utm_source?: string | null;
+  utm_medium?: string | null;
+  utm_campaign?: string | null;
+  utm_content?: string | null;
+  utm_term?: string | null;
+  fbclid?: string | null;
+  fbc?: string | null;
+  fbp?: string | null;
+  client_ip_address?: string | null;
+  user_agent?: string | null;
+  provider_status?: string | null;
+  provider_response_id?: string | null;
+  provider_error?: string | null;
+  meta_status?: "pending" | "processing" | "accepted" | "failed" | null;
+  request_id?: string | null;
+  payload_hash?: string | null;
+};
+
+export type ConversionEventUpdate = Partial<
+  Pick<
+    ConversionEventInsert,
+    | "meta_status"
+    | "provider_status"
+    | "provider_response_id"
+    | "provider_error"
+  >
+>;
+
+type ConversionRow = TidbRow & { meta_status?: string | null };
+type PurchaseRow = TidbRow & {
+  status?: PurchaseStatus;
+  meta_event_id?: string | null;
+  meta_events_received?: boolean | number;
+  meta_error?: string | null;
+  approved_at?: string | null;
+  value?: number | string | null;
+  currency?: string | null;
+  product_id?: string | null;
+  product_name?: string | null;
+  external_id?: string | null;
+  external_id_hash?: string | null;
+  hotmart_event_id?: string | null;
+};
+
+const EVENT_COLUMNS = [
+  "event_name",
+  "event_id",
+  "source",
+  "transaction_id",
+  "external_id",
+  "event_source_url",
+  "referrer_url",
+  "event_time",
+  "received_at",
+  "value",
+  "currency",
+  "utm_source",
+  "utm_medium",
+  "utm_campaign",
+  "utm_content",
+  "utm_term",
+  "fbclid",
+  "fbc",
+  "fbp",
+  "client_ip_address",
+  "user_agent",
+  "provider_status",
+  "provider_response_id",
+  "provider_error",
+  "meta_status",
+  "request_id",
+  "payload_hash",
+] as const;
 
 export async function insertConversionEvent(
   event: ConversionEventInsert,
-): Promise<{
-  inserted: boolean;
-  existingStatus?: string | null;
-}> {
-  const { error } = await supabaseAdmin.from("conversion_events").insert(event);
-
-  if (!error) return { inserted: true };
-  if (error.code === "23505") {
-    const { data, error: readError } = await supabaseAdmin
-      .from("conversion_events")
-      .select("meta_status")
-      .eq("event_id", event.event_id)
-      .maybeSingle();
-    if (readError) {
-      throw new Error(
-        `Could not read existing conversion event (${readError.code ?? "unknown"})`,
-      );
-    }
-    return { inserted: false, existingStatus: data?.meta_status ?? null };
-  }
-  throw new Error(
-    `Could not persist conversion event (${error.code ?? "unknown"})`,
+): Promise<{ inserted: boolean; existingStatus?: string | null }> {
+  const placeholders = EVENT_COLUMNS.map(() => "?").join(", ");
+  const values = EVENT_COLUMNS.map((column) =>
+    column === "received_at"
+      ? (event.received_at ?? new Date().toISOString())
+      : (event[column] ?? null),
   );
+
+  try {
+    await executeSql(
+      `insert into conversion_events (${EVENT_COLUMNS.join(", ")}) values (${placeholders})`,
+      values,
+    );
+    return { inserted: true };
+  } catch (error) {
+    if (!isDuplicateKeyError(error)) {
+      throw new Error("Could not persist conversion event");
+    }
+
+    const rows = await queryRows<ConversionRow>(
+      "select meta_status from conversion_events where event_id = ? limit 1",
+      [event.event_id],
+    );
+    return { inserted: false, existingStatus: rows[0]?.meta_status ?? null };
+  }
 }
 
 export async function updateConversionEvent(
   eventId: string,
   update: ConversionEventUpdate,
 ): Promise<void> {
-  const { error } = await supabaseAdmin
-    .from("conversion_events")
-    .update(update)
-    .eq("event_id", eventId);
-
-  if (error) {
-    throw new Error(
-      `Could not update conversion event (${error.code ?? "unknown"})`,
-    );
-  }
+  const entries = Object.entries(update).filter(
+    ([, value]) => value !== undefined,
+  );
+  if (entries.length === 0) return;
+  const assignments = entries.map(([key]) => `${key} = ?`).join(", ");
+  await executeSql(
+    `update conversion_events set ${assignments}, updated_at = current_timestamp where event_id = ?`,
+    [...entries.map(([, value]) => value ?? null), eventId],
+  );
 }
 
 export async function claimConversionEvent(eventId: string): Promise<{
   claimed: boolean;
   status: string | null;
 }> {
-  const { data, error } = await supabaseAdmin.rpc("claim_conversion_event", {
-    p_event_id: eventId,
-  });
-
-  if (error) {
-    throw new Error(
-      `Could not claim conversion event (${error.code ?? "unknown"})`,
-    );
-  }
-
-  const row = data?.[0];
+  const result = await executeSql(
+    `update conversion_events
+     set meta_status = 'processing',
+         meta_attempts = meta_attempts + 1,
+         meta_last_attempt_at = current_timestamp,
+         updated_at = current_timestamp
+     where event_id = ?
+       and (meta_status is null
+         or meta_status = 'pending'
+         or meta_status = 'failed'
+         or (meta_status = 'processing' and meta_last_attempt_at < current_timestamp - interval 2 minute))`,
+    [eventId],
+  );
+  const rows = await queryRows<ConversionRow>(
+    "select meta_status from conversion_events where event_id = ? limit 1",
+    [eventId],
+  );
   return {
-    claimed: row?.claimed === true,
-    status: row?.current_status ?? null,
+    claimed: result.affectedRows > 0,
+    status: rows[0]?.meta_status ?? null,
   };
 }
 
@@ -84,23 +178,31 @@ export async function findCheckoutAttribution(externalId: string): Promise<{
   clientIpAddress?: string;
   userAgent?: string;
 } | null> {
-  const { data, error } = await supabaseAdmin
-    .from("conversion_events")
-    .select(
-      "event_source_url,referrer_url,fbc,fbp,fbclid,utm_source,utm_medium,utm_campaign,utm_content,utm_term,client_ip_address,user_agent",
-    )
-    .eq("event_name", "InitiateCheckout")
-    .eq("external_id", externalId)
-    .order("event_time", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  if (error) {
-    throw new Error(
-      `Could not load checkout attribution (${error.code ?? "unknown"})`,
-    );
-  }
-
+  const rows = await queryRows<
+    TidbRow & {
+      event_source_url?: string | null;
+      referrer_url?: string | null;
+      fbc?: string | null;
+      fbp?: string | null;
+      fbclid?: string | null;
+      utm_source?: string | null;
+      utm_medium?: string | null;
+      utm_campaign?: string | null;
+      utm_content?: string | null;
+      utm_term?: string | null;
+      client_ip_address?: string | null;
+      user_agent?: string | null;
+    }
+  >(
+    `select event_source_url, referrer_url, fbc, fbp, fbclid,
+            utm_source, utm_medium, utm_campaign, utm_content, utm_term,
+            client_ip_address, user_agent
+     from conversion_events
+     where event_name = 'InitiateCheckout' and external_id = ?
+     order by event_time desc limit 1`,
+    [externalId],
+  );
+  const data = rows[0];
   if (!data) return null;
   return {
     ...(data.event_source_url ? { eventSourceUrl: data.event_source_url } : {}),
@@ -125,51 +227,50 @@ export async function upsertPurchase(
 ): Promise<{ status: PurchaseStatus | null; created: boolean }> {
   if (!event.status) return { status: null, created: false };
 
-  const { data: current, error: readError } = await supabaseAdmin
-    .from("purchases")
-    .select("*")
-    .eq("transaction_id", event.transactionId)
-    .maybeSingle();
-
-  if (readError) {
-    throw new Error(`Could not read purchase (${readError.code ?? "unknown"})`);
-  }
-
-  const currentStatus = (current?.status as PurchaseStatus | undefined) ?? null;
+  const rows = await queryRows<PurchaseRow>(
+    "select * from purchases where transaction_id = ? limit 1",
+    [event.transactionId],
+  );
+  const current = rows[0];
+  const currentStatus = current?.status ?? null;
   const nextStatus = choosePurchaseStatus(currentStatus, event.status);
-  const now = new Date().toISOString();
-  const row: TablesInsert<"purchases"> = {
-    transaction_id: event.transactionId,
-    status: nextStatus ?? "approved",
-    approved_at:
-      event.approvedAt?.toISOString() ?? current?.approved_at ?? null,
-    value: event.value ?? current?.value ?? null,
-    currency: event.currency ?? current?.currency ?? null,
-    product_id: event.productId ?? current?.product_id ?? null,
-    product_name: event.productName ?? current?.product_name ?? null,
-    external_id: event.externalId ?? current?.external_id ?? null,
-    external_id_hash: event.externalId
+  const externalId = event.externalId ?? current?.external_id ?? null;
+  const values = [
+    event.transactionId,
+    nextStatus ?? "approved",
+    event.approvedAt?.toISOString() ?? current?.approved_at ?? null,
+    event.value ?? current?.value ?? null,
+    event.currency ?? current?.currency ?? null,
+    event.productId ?? current?.product_id ?? null,
+    event.productName ?? current?.product_name ?? null,
+    externalId,
+    event.externalId
       ? await sha256(event.externalId)
       : (current?.external_id_hash ?? null),
-    hotmart_event_id: event.hotmartEventId ?? current?.hotmart_event_id ?? null,
-    meta_event_id: current?.meta_event_id ?? null,
-    meta_events_received: current?.meta_events_received ?? false,
-    meta_error: current?.meta_error ?? null,
-    last_webhook_at: now,
-    updated_at: now,
-  };
+    event.hotmartEventId ?? current?.hotmart_event_id ?? null,
+    current?.meta_event_id ?? null,
+    current?.meta_events_received ?? 0,
+    current?.meta_error ?? null,
+  ];
 
-  if (!current) row.created_at = now;
-
-  const { error: upsertError } = await supabaseAdmin
-    .from("purchases")
-    .upsert(row, { onConflict: "transaction_id" });
-
-  if (upsertError) {
-    throw new Error(
-      `Could not persist purchase (${upsertError.code ?? "unknown"})`,
-    );
-  }
+  await executeSql(
+    `insert into purchases
+      (transaction_id, status, approved_at, value, currency, product_id,
+       product_name, external_id, external_id_hash, hotmart_event_id,
+       meta_event_id, meta_events_received, meta_error)
+     values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+     on duplicate key update
+       status = values(status), approved_at = values(approved_at),
+       value = values(value), currency = values(currency),
+       product_id = values(product_id), product_name = values(product_name),
+       external_id = values(external_id), external_id_hash = values(external_id_hash),
+       hotmart_event_id = values(hotmart_event_id),
+       meta_event_id = values(meta_event_id),
+       meta_events_received = values(meta_events_received),
+       meta_error = values(meta_error), last_webhook_at = current_timestamp,
+       updated_at = current_timestamp`,
+    values,
+  );
 
   return { status: nextStatus, created: !current };
 }
@@ -178,23 +279,17 @@ export async function markPurchaseMetaResult(
   transactionId: string,
   result: { eventId: string; accepted: boolean; error?: string | null },
 ): Promise<void> {
-  const update: TablesUpdate<"purchases"> = {
-    meta_event_id: result.eventId,
-    meta_events_received: result.accepted,
-    meta_error: result.error ?? null,
-    updated_at: new Date().toISOString(),
-  };
-
-  const { error } = await supabaseAdmin
-    .from("purchases")
-    .update(update)
-    .eq("transaction_id", transactionId);
-
-  if (error) {
-    throw new Error(
-      `Could not update purchase Meta status (${error.code ?? "unknown"})`,
-    );
-  }
+  await executeSql(
+    `update purchases
+     set meta_event_id = ?, meta_events_received = ?, meta_error = ?, updated_at = current_timestamp
+     where transaction_id = ?`,
+    [
+      result.eventId,
+      result.accepted ? 1 : 0,
+      result.error ?? null,
+      transactionId,
+    ],
+  );
 }
 
 function choosePurchaseStatus(

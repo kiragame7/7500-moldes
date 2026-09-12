@@ -10,7 +10,7 @@ A Hotmart deve ser configurada com a URL pública da aplicação, a versão de w
 
 ## Persistência
 
-A migração `supabase/migrations/20260912000000_conversion_tracking.sql` cria `conversion_events` e `purchases`, com chaves únicas para `event_id` e `transaction_id`. Ela também cria a função protegida `claim_conversion_event`, que impede dois processamentos concorrentes do mesmo evento de compra e permite retry controlado após falha.
+A migração `db/migrations/20260912000000_conversion_tracking.sql` cria `conversion_events` e `purchases`, com chaves únicas para `event_id` e `transaction_id`. A camada server-side usa o driver HTTP oficial `@tidbcloud/serverless`, adequado para funções serverless da Vercel, e faz o claim concorrente por atualização condicional do evento, permitindo retry controlado após falha.
 
 O registro de checkout guarda `external_id`, `fbc`, `fbp`, `fbclid`, URL, referenciador, user agent e os cinco UTMs quando o navegador envia `InitiateCheckout`. A Hotmart recebe o mesmo identificador lógico pelo parâmetro `xcod`; quando o webhook retorna esse valor, a compra é associada à atribuição armazenada.
 
@@ -27,10 +27,10 @@ Os valores devem ser inseridos no mecanismo de secrets do ambiente de publicaç�
 - `HOTMART_WEBHOOK_TOKEN` — valor recebido no header HOTTOK da Hotmart;
 - `META_CAPI_ACCESS_TOKEN` — token privado da Conversions API;
 - `META_PIXEL_ID` e `VITE_META_PIXEL_ID` — ID público do Pixel;
-- `SUPABASE_URL` e `SUPABASE_SERVICE_ROLE_KEY` — acesso server-side ao banco;
+- `DATABASE_URL` — URL MySQL/TiDB Cloud com SSL, preferencialmente criada pela integração TiDB Cloud da Vercel;
 - `META_GRAPH_API_VERSION` — opcional, com fallback para `v26.0`.
 
-A migração deve ser aplicada no Supabase conectado ao projeto antes de configurar o webhook da Hotmart. Não há dados fictícios nem envio de compra de teste neste repositório.
+A migração deve ser executada no SQL Editor do TiDB Cloud antes de configurar o webhook da Hotmart. Não há dados fictícios nem envio de compra de teste neste repositório.
 
 ## Verificação local
 
