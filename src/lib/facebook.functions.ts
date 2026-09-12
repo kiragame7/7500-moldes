@@ -79,6 +79,20 @@ export const sendFacebookConversionEvent = createServerFn({ method: "POST" })
       persisted = true;
       alreadyAccepted =
         !result.inserted && result.existingStatus === "accepted";
+
+      if (!alreadyAccepted) {
+        const { claimConversionEvent } =
+          await import("./conversion-persistence.server.ts");
+        const claim = await claimConversionEvent(event.eventId);
+        if (!claim.claimed) {
+          return {
+            success: true,
+            status: 202,
+            responseId: null,
+            error: null,
+          };
+        }
+      }
     } catch (error) {
       console.warn(
         "Could not persist browser conversion event",
@@ -153,6 +167,7 @@ function sanitizeMetaCustomData(
       ([key]) =>
         ![
           "external_id",
+          "hotmart_xcod",
           "fbclid",
           "fbc",
           "fbp",
