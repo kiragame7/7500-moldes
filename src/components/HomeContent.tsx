@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { getCheckoutEventId, useFacebookConversions, withHotmartAttribution } from '@/lib/facebook.hooks';
+import { getCheckoutEventId, getViewContentEventId, useFacebookConversions, withHotmartAttribution } from '@/lib/facebook.hooks';
 import heroAsset from "@/assets/hero_spanish_new.webp.asset.json";
 import whatsappAsset from "@/assets/whatsapp_chat_new.webp.asset.json";
 import dep1Asset from "@/assets/depoimento_1.webp.asset.json";
@@ -131,7 +131,7 @@ export function HomeContent() {
                     <div className="relative mx-auto max-w-3xl"><img src={heroAsset.url} alt="Acervo de moldes para papelaria personalizada mostrado em notebook, tablet e celular" width="1600" height="900" className="w-full rounded-3xl shadow-card" fetchPriority="high"
                         /></div>
                 </div>
-                <div className="mt-10"><button onClick={(e) => { e.preventDefault(); trackEvent('ViewContent', { section: 'Hero' }); document.getElementById('oferta')?.scrollIntoView({ behavior: 'smooth' }); }} className="inline-flex flex-wrap justify-center items-center gap-2 bg-gradient-green text-white font-bold text-base md:text-lg px-6 py-4 md:px-10 md:py-5 rounded-full shadow-green hover:scale-[1.02] transition-transform"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" className="lucide lucide-play w-5 h-5 fill-white" aria-hidden="true"><path d="M5 5a2 2 0 0 1 3.008-1.728l11.997 6.998a2 2 0 0 1 .003 3.458l-12 7A2 2 0 0 1 5 19z"></path></svg>QUIERO RECIBIR EL ACERVO COMPLETO</button>
+                <div className="mt-10"><button onClick={(e) => { e.preventDefault(); void trackEvent('ViewContent', { section: 'Hero' }, getViewContentEventId('Hero')); document.getElementById('oferta')?.scrollIntoView({ behavior: 'smooth' }); }} className="inline-flex flex-wrap justify-center items-center gap-2 bg-gradient-green text-white font-bold text-base md:text-lg px-6 py-4 md:px-10 md:py-5 rounded-full shadow-green hover:scale-[1.02] transition-transform"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" className="lucide lucide-play w-5 h-5 fill-white" aria-hidden="true"><path d="M5 5a2 2 0 0 1 3.008-1.728l11.997 6.998a2 2 0 0 1 .003 3.458l-12 7A2 2 0 0 0 5 19z"></path></svg>QUIERO RECIBIR EL ACERVO COMPLETO</button>
                     <p
                         className="mt-4 text-sm text-muted-foreground">Acceso inmediato • Producto digital • Pago con tarjeta o moneda local</p>
                 </div>
@@ -502,7 +502,7 @@ export function HomeContent() {
                                             aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="m9 12 2 2 4-4"></path></svg><span>Acceso inmediato</span></li>
                                     <li className="flex items-center gap-2 opacity-50"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" className="lucide lucide-circle-x w-5 h-5 shrink-0"
                                             aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="m15 9-6 6"></path><path d="m9 9 6 6"></path></svg><span>Sin bonos</span></li>
-                                </ul><button onClick={() => { setShowUpgradeModal(true); trackEvent('ViewContent', { plan: 'Basic', price: 4.99 }); }} className="mt-6 w-full border-2 border-foreground text-foreground font-bold px-6 py-4 rounded-full hover:bg-foreground hover:text-background transition text-center">QUIERO EL BÁSICO</button></div>
+                                </ul><button onClick={() => { setShowUpgradeModal(true); void trackEvent('ViewContent', { plan: 'Basic', price: 4.99 }, getViewContentEventId('Basic')); }} className="mt-6 w-full border-2 border-foreground text-foreground font-bold px-6 py-4 rounded-full hover:bg-foreground hover:text-background transition text-center">QUIERO EL BÁSICO</button></div>
                         </div>
                     </div>
                 </div>
@@ -646,7 +646,7 @@ export function HomeContent() {
                                 <p className="text-lg md:text-xl font-medium opacity-95">Toda venta comienza cuando logras responder:</p>
                                 <h2 className="mt-4 text-3xl md:text-5xl font-black leading-tight italic">&quot;Sí, yo tengo ese tema.&quot;</h2>
                                 <p className="mt-6 text-base md:text-lg opacity-95 leading-relaxed">Crea hoy tu acervo profesional y prepárate para atender prácticamente cualquier pedido que llegue a tu WhatsApp.</p>
-                                <div className="mt-10"><button onClick={(e) => { e.preventDefault(); trackEvent('ViewContent', { section: 'Footer' }); document.getElementById('oferta')?.scrollIntoView({ behavior: 'smooth' }); }} className="inline-flex flex-wrap justify-center items-center gap-2 bg-gradient-green text-white font-black text-lg px-6 py-5 rounded-full shadow-green hover:scale-[1.02] transition">QUIERO ACCEDER AL ACERVO AHORA</button></div>
+                                <div className="mt-10"><button onClick={(e) => { e.preventDefault(); void trackEvent('ViewContent', { section: 'Footer' }, getViewContentEventId('Footer')); document.getElementById('oferta')?.scrollIntoView({ behavior: 'smooth' }); }} className="inline-flex flex-wrap justify-center items-center gap-2 bg-gradient-green text-white font-black text-lg px-6 py-5 rounded-full shadow-green hover:scale-[1.02] transition">QUIERO ACCEDER AL ACERVO AHORA</button></div>
                                 <div
                                     className="mt-8 flex flex-wrap justify-center gap-6 text-sm">
                                     <div className="flex items-center gap-2"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" className="lucide lucide-clock w-4 h-4"
@@ -758,4 +758,3 @@ export function HomeContent() {
     </div>
   );
 }
-
