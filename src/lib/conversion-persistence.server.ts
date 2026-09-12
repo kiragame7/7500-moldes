@@ -2,7 +2,6 @@ import type { NormalizedHotmartEvent, PurchaseStatus } from "./conversions.ts";
 import { sha256 } from "./security.server.ts";
 import {
   executeSql,
-  isDuplicateKeyError,
   queryRows,
   type TidbRow,
 } from "./tidb.server.ts";
@@ -105,23 +104,19 @@ export async function insertConversionEvent(
       : (event[column] ?? null),
   );
 
-  try {
-    await executeSql(
-      `insert into conversion_events (${EVENT_COLUMNS.join(", ")}) values (${placeholders})`,
-      values,
-    );
+  const result = await executeSql(
+    `insert ignore into conversion_events (${EVENT_COLUMNS.join(", ")}) values (${placeholders})`,
+    values,
+  );
+  if (result.affectedRows > 0) {
     return { inserted: true };
-  } catch (error) {
-    if (!isDuplicateKeyError(error)) {
-      throw new Error("Could not persist conversion event");
-    }
-
-    const rows = await queryRows<ConversionRow>(
-      "select meta_status from conversion_events where event_id = ? limit 1",
-      [event.event_id],
-    );
-    return { inserted: false, existingStatus: rows[0]?.meta_status ?? null };
   }
+
+  const rows = await queryRows<ConversionRow>(
+    "select meta_status from conversion_events where event_id = ? limit 1",
+    [event.event_id],
+  );
+  return { inserted: false, existingStatus: rows[0]?.meta_status ?? null };
 }
 
 export async function updateConversionEvent(
