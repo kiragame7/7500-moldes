@@ -172,10 +172,6 @@ export const useFacebookConversions = () => {
       });
     }
 
-    // ViewContent stays browser-only to avoid duplicate server deliveries;
-    // server-side CAPI remains enabled for checkout and purchase events.
-    if (eventName === "ViewContent") return;
-
     try {
       await sendFacebookConversionEvent({
         data: {
