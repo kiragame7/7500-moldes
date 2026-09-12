@@ -136,7 +136,6 @@ function RootShell({ children }: { children: ReactNode }) {
               var moldesFbclid = new URLSearchParams(window.location.search).get('fbclid');
               if (!moldesFbc && moldesFbclid) moldesFbc = 'fb.1.' + Date.now() + '.' + moldesFbclid;
               fbq('init', '${META_PIXEL_ID}', { external_id: moldesExternalId, fbc: moldesFbc || undefined, fbp: moldesFbp || undefined });
-              fbq('track', 'PageView', {}, { eventID: 'pageview:' + moldesExternalId });
             `,
           }}
         />

@@ -178,6 +178,49 @@ export function getViewContentEventId(section: string): string {
   return `viewcontent:${normalizedSection}:${externalId}:${createFallbackId()}`;
 }
 
+/**
+ * Opens a checkout link a beat after firing tracking, instead of letting the
+ * <a target="_blank"> navigate immediately.
+ *
+ * On desktop, target="_blank" opens a genuinely new tab, so the current page
+ * never unloads and window.fbq(...)'s underlying network request has all
+ * the time it needs. On many mobile browsers — and especially in-app
+ * browsers (Instagram/Facebook ad webviews) — a target="_blank" click
+ * instead replaces the current page right away. That unloads the document
+ * almost immediately, which can abort fbq's outgoing request before it's
+ * actually sent. The server-side beacon call survives this fine (that's
+ * exactly what sendBeacon/keepalive fetch are for, see
+ * sendConversionBeacon above), but the client-side Pixel call is a plain,
+ * cancellable request — which is why only the browser-side event was going
+ * missing on mobile while the server event kept working.
+ *
+ * A short delay before navigating gives the browser time to flush the pixel
+ * request first, on every platform.
+ */
+export function openCheckoutLink(url: string, delayMs = 500): void {
+  if (typeof window === "undefined") return;
+  window.setTimeout(() => {
+    window.open(url, "_blank", "noopener");
+  }, delayMs);
+}
+
+export function getPageViewEventId(): string {
+  const externalId = getOrCreateExternalId() ?? createFallbackId();
+  const sessionKey = "moldes_pageview_session";
+  if (typeof window !== "undefined") {
+    try {
+      const existing = window.sessionStorage.getItem(sessionKey);
+      if (existing) return `pageview:${externalId}:${existing}`;
+      const token = createFallbackId();
+      window.sessionStorage.setItem(sessionKey, token);
+      return `pageview:${externalId}:${token}`;
+    } catch {
+      // Tracking must never break the offer page.
+    }
+  }
+  return `pageview:${externalId}:${createFallbackId()}`;
+}
+
 export const useFacebookConversions = () => {
   useEffect(() => {
     captureAttribution();
