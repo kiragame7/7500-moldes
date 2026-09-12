@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApiPublicFacebookWebhookRouteImport } from './routes/api/public/facebook-webhook'
+import { Route as ApiWebhooksHotmartRouteImport } from './routes/api/webhooks/hotmart'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -23,31 +24,41 @@ const ApiPublicFacebookWebhookRoute =
     path: '/api/public/facebook-webhook',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiWebhooksHotmartRoute = ApiWebhooksHotmartRouteImport.update({
+  id: '/api/webhooks/hotmart',
+  path: '/api/webhooks/hotmart',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/api/public/facebook-webhook': typeof ApiPublicFacebookWebhookRoute
+  '/api/webhooks/hotmart': typeof ApiWebhooksHotmartRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/api/public/facebook-webhook': typeof ApiPublicFacebookWebhookRoute
+  '/api/webhooks/hotmart': typeof ApiWebhooksHotmartRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/api/public/facebook-webhook': typeof ApiPublicFacebookWebhookRoute
+  '/api/webhooks/hotmart': typeof ApiWebhooksHotmartRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/api/public/facebook-webhook'
+  fullPaths: '/' | '/api/public/facebook-webhook' | '/api/webhooks/hotmart'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/api/public/facebook-webhook'
-  id: '__root__' | '/' | '/api/public/facebook-webhook'
+  to: '/' | '/api/public/facebook-webhook' | '/api/webhooks/hotmart'
+  id:
+    '__root__' | '/' | '/api/public/facebook-webhook' | '/api/webhooks/hotmart'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ApiPublicFacebookWebhookRoute: typeof ApiPublicFacebookWebhookRoute
+  ApiWebhooksHotmartRoute: typeof ApiWebhooksHotmartRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -66,12 +77,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicFacebookWebhookRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/webhooks/hotmart': {
+      id: '/api/webhooks/hotmart'
+      path: '/api/webhooks/hotmart'
+      fullPath: '/api/webhooks/hotmart'
+      preLoaderRoute: typeof ApiWebhooksHotmartRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ApiPublicFacebookWebhookRoute: ApiPublicFacebookWebhookRoute,
+  ApiWebhooksHotmartRoute: ApiWebhooksHotmartRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

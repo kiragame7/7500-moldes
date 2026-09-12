@@ -1,11 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { handleHotmartWebhookRequest } from "@/lib/hotmart-webhook.server";
 
-/**
- * Backwards-compatible alias for the old public URL.
- * It intentionally uses the same Hotmart authentication and processing path.
- */
-export const Route = createFileRoute("/api/public/facebook-webhook")({
+export const Route = createFileRoute("/api/webhooks/hotmart")({
   server: {
     handlers: {
       POST: async ({ request }) => handleHotmartWebhookRequest(request),

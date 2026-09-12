@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useFacebookConversions } from '@/lib/facebook.hooks';
+import { getCheckoutEventId, useFacebookConversions, withHotmartAttribution } from '@/lib/facebook.hooks';
 import heroAsset from "@/assets/hero_spanish_new.webp.asset.json";
 import whatsappAsset from "@/assets/whatsapp_chat_new.webp.asset.json";
 import dep1Asset from "@/assets/depoimento_1.webp.asset.json";
@@ -483,7 +483,7 @@ export function HomeContent() {
                                             aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="m9 12 2 2 4-4"></path></svg><span>360 mil archivos</span></li>
                                     <li className="flex items-center gap-2 text-sm"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" className="lucide lucide-circle-check w-5 h-5 text-brand shrink-0"
                                             aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="m9 12 2 2 4-4"></path></svg><span>Vitalicio</span></li>
-                                </ul><a href="https://pay.hotmart.com/U107293780N?off=17nhtsq2&checkoutMode=10" onClick={() => trackEvent('InitiateCheckout', { plan: 'Premium', price: 9.99 })} target="_blank" rel="noopener" className="mt-6 inline-flex flex-wrap justify-center items-center gap-2 bg-gradient-green text-white font-black px-6 py-4 rounded-full shadow-green hover:scale-[1.02] transition-transform animate-pulse-gentle">QUIERO EL PREMIUM</a>
+                                </ul><a href={withHotmartAttribution("https://pay.hotmart.com/U107293780N?off=17nhtsq2&checkoutMode=10")} onClick={() => { void trackEvent('InitiateCheckout', { plan: 'Premium', value: 9.99, currency: 'USD', content_ids: ['premium'], content_type: 'product' }, getCheckoutEventId('Premium')); }} target="_blank" rel="noopener" className="mt-6 inline-flex flex-wrap justify-center items-center gap-2 bg-gradient-green text-white font-black px-6 py-4 rounded-full shadow-green hover:scale-[1.02] transition-transform animate-pulse-gentle">QUIERO EL PREMIUM</a>
                                 <p
                                     className="mt-4 text-center text-xs text-muted-foreground">Acceso inmediato • Producto digital • Pago en moneda local o con tarjeta</p>
                             </div>
@@ -729,8 +729,8 @@ export function HomeContent() {
 
                                 <div className="mt-6 space-y-3">
                                   <a 
-                                    href="https://pay.hotmart.com/U107293780N?off=yqt91k4v&checkoutMode=10" 
-                                    onClick={() => trackEvent('InitiateCheckout', { plan: 'Premium_Upgrade', price: 7.99 })}
+                                    href={withHotmartAttribution("https://pay.hotmart.com/U107293780N?off=yqt91k4v&checkoutMode=10")}
+                                    onClick={() => { void trackEvent('InitiateCheckout', { plan: 'Premium_Upgrade', value: 7.99, currency: 'USD', content_ids: ['premium_upgrade'], content_type: 'product' }, getCheckoutEventId('Premium_Upgrade')); }}
                                     target="_blank" 
                                     rel="noopener"
                                     className="flex w-full justify-center items-center gap-2 bg-gradient-green text-white font-black text-base px-6 py-4 rounded-full shadow-green hover:scale-[1.02] transition-transform"
@@ -740,8 +740,8 @@ export function HomeContent() {
                                   </a>
 
                                   <a 
-                                    href="https://pay.hotmart.com/K107291679I?checkoutMode=10"
-                                    onClick={() => trackEvent('InitiateCheckout', { plan: 'Basic', price: 4.99 })}
+                                    href={withHotmartAttribution("https://pay.hotmart.com/K107291679I?checkoutMode=10")}
+                                    onClick={() => { void trackEvent('InitiateCheckout', { plan: 'Basic', value: 4.99, currency: 'USD', content_ids: ['basic'], content_type: 'product' }, getCheckoutEventId('Basic')); }}
                                     target="_blank" 
                                     rel="noopener"
                                     className="inline-block text-sm text-muted-foreground hover:text-foreground underline underline-offset-4"
@@ -758,7 +758,5 @@ export function HomeContent() {
     </div>
   );
 }
-
-
 
 

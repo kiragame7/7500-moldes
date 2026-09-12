@@ -6,21 +6,145 @@ export type Json =
   | { [key: string]: Json | undefined }
   | Json[]
 
+type ConversionEventRow = {
+  id: number
+  event_name: string
+  event_id: string
+  source: "browser" | "hotmart" | "meta_capi"
+  transaction_id: string | null
+  external_id: string | null
+  event_source_url: string | null
+  referrer_url: string | null
+  event_time: string
+  received_at: string
+  value: number | null
+  currency: string | null
+  utm_source: string | null
+  utm_medium: string | null
+  utm_campaign: string | null
+  utm_content: string | null
+  utm_term: string | null
+  fbclid: string | null
+  fbc: string | null
+  fbp: string | null
+  client_ip_address: string | null
+  user_agent: string | null
+  provider_status: string | null
+  provider_response_id: string | null
+  provider_error: string | null
+  meta_status: "pending" | "processing" | "accepted" | "failed" | null
+  meta_attempts: number
+  meta_last_attempt_at: string | null
+  request_id: string | null
+  payload_hash: string | null
+  created_at: string
+  updated_at: string
+}
+
+type ConversionEventInsert = {
+  id?: number
+  event_name: string
+  event_id: string
+  source: "browser" | "hotmart" | "meta_capi"
+  transaction_id?: string | null
+  external_id?: string | null
+  event_source_url?: string | null
+  referrer_url?: string | null
+  event_time: string
+  received_at?: string
+  value?: number | null
+  currency?: string | null
+  utm_source?: string | null
+  utm_medium?: string | null
+  utm_campaign?: string | null
+  utm_content?: string | null
+  utm_term?: string | null
+  fbclid?: string | null
+  fbc?: string | null
+  fbp?: string | null
+  client_ip_address?: string | null
+  user_agent?: string | null
+  provider_status?: string | null
+  provider_response_id?: string | null
+  provider_error?: string | null
+  meta_status?: "pending" | "processing" | "accepted" | "failed" | null
+  meta_attempts?: number
+  meta_last_attempt_at?: string | null
+  request_id?: string | null
+  payload_hash?: string | null
+  created_at?: string
+  updated_at?: string
+}
+
+type ConversionEventUpdate = Partial<ConversionEventInsert>
+
+type PurchaseRow = {
+  transaction_id: string
+  status: "approved" | "complete" | "refunded" | "chargeback" | "canceled" | "expired"
+  approved_at: string | null
+  value: number | null
+  currency: string | null
+  product_id: string | null
+  product_name: string | null
+  external_id: string | null
+  external_id_hash: string | null
+  hotmart_event_id: string | null
+  meta_event_id: string | null
+  meta_events_received: boolean
+  meta_error: string | null
+  last_webhook_at: string
+  created_at: string
+  updated_at: string
+}
+
+type PurchaseInsert = {
+  transaction_id: string
+  status: "approved" | "complete" | "refunded" | "chargeback" | "canceled" | "expired"
+  approved_at?: string | null
+  value?: number | null
+  currency?: string | null
+  product_id?: string | null
+  product_name?: string | null
+  external_id?: string | null
+  external_id_hash?: string | null
+  hotmart_event_id?: string | null
+  meta_event_id?: string | null
+  meta_events_received?: boolean
+  meta_error?: string | null
+  last_webhook_at?: string
+  created_at?: string
+  updated_at?: string
+}
+
+type PurchaseUpdate = Partial<PurchaseInsert>
+
 export type Database = {
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
     PostgrestVersion: "14.15"
   }
   public: {
     Tables: {
-      [_ in never]: never
+      conversion_events: {
+        Row: ConversionEventRow
+        Insert: ConversionEventInsert
+        Update: ConversionEventUpdate
+        Relationships: []
+      }
+      purchases: {
+        Row: PurchaseRow
+        Insert: PurchaseInsert
+        Update: PurchaseUpdate
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      claim_conversion_event: {
+        Args: { p_event_id: string }
+        Returns: { claimed: boolean; current_status: string | null }[]
+      }
     }
     Enums: {
       [_ in never]: never
@@ -56,8 +180,7 @@ export type Tables<
     : never
   : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] &
         DefaultSchema["Views"])
-    ? (DefaultSchema["Tables"] &
-        DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
+    ? (DefaultSchema["Tables"] & DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
         Row: infer R
       }
       ? R
@@ -107,7 +230,7 @@ export type TablesUpdate<
     ? U
     : never
   : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
-    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+    ? DatabaseWithoutInternals["public"]["Tables"][DefaultSchemaTableNameOrOptions] extends {
         Update: infer U
       }
       ? U

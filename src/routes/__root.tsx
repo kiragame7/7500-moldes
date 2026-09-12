@@ -12,6 +12,8 @@ import { useEffect, type ReactNode } from "react";
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 
+const META_PIXEL_ID = import.meta.env["VITE_META_PIXEL_ID"] || "27483742397970318";
+
 function NotFoundComponent() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
@@ -123,8 +125,13 @@ function RootShell({ children }: { children: ReactNode }) {
               t.src=v;s=b.getElementsByTagName(e)[0];
               s.parentNode.insertBefore(t,s)}(window, document,'script',
               'https://connect.facebook.net/en_US/fbevents.js');
-              fbq('init', '27483742397970318');
-              fbq('track', 'PageView');
+              var moldesExternalId = window.localStorage.getItem('moldes_external_id');
+              if (!moldesExternalId) {
+                moldesExternalId = 'moldes_' + (window.crypto && window.crypto.randomUUID ? window.crypto.randomUUID() : Date.now() + '_' + Math.random().toString(36).slice(2));
+                window.localStorage.setItem('moldes_external_id', moldesExternalId);
+              }
+              fbq('init', '${META_PIXEL_ID}', { external_id: moldesExternalId });
+              fbq('track', 'PageView', {}, { eventID: 'pageview:' + moldesExternalId });
             `,
           }}
         />
@@ -133,7 +140,7 @@ function RootShell({ children }: { children: ReactNode }) {
             height="1"
             width="1"
             style={{ display: "none" }}
-            src="https://www.facebook.com/tr?id=27483742397970318&ev=PageView&noscript=1"
+            src={`https://www.facebook.com/tr?id=${META_PIXEL_ID}&ev=PageView&noscript=1`}
           />
         </noscript>
         {/* End Meta Pixel Code */}
@@ -176,4 +183,3 @@ function RootComponent() {
     </QueryClientProvider>
   );
 }
-
