@@ -320,11 +320,6 @@ export function HomeContent() {
                                     aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="m9 12 2 2 4-4"></path></svg></div>
                             <p className="text-foreground font-medium">Quienes reciben pedidos por WhatsApp</p>
                         </div>
-                        <div className={`snap-center shrink-0 w-[75%] sm:w-[45%] lg:w-[30%] flex flex-col items-center text-center gap-3 bg-white rounded-2xl p-5 border border-border shadow-card transition-all cursor-pointer ${activeIndex === 2 ? 'scale-[1.02] border-brand/50' : ''}`}>
-                            <div className="w-8 h-8 rounded-full bg-gradient-brand flex items-center justify-center shrink-0"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" className="lucide lucide-circle-check w-5 h-5 text-white"
-                                    aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="m9 12 2 2 4-4"></path></svg></div>
-                            <p className="text-foreground font-medium">Quienes reciben pedidos por WhatsApp</p>
-                        </div>
                         <div className={`snap-center shrink-0 w-[75%] sm:w-[45%] lg:w-[30%] flex flex-col items-center text-center gap-3 bg-white rounded-2xl p-5 border border-border shadow-card transition-all cursor-pointer ${activeIndex === 3 ? 'scale-[1.02] border-brand/50' : ''}`}>
                             <div className="w-8 h-8 rounded-full bg-gradient-brand flex items-center justify-center shrink-0"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" className="lucide lucide-circle-check w-5 h-5 text-white"
                                     aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="m9 12 2 2 4-4"></path></svg></div>
