@@ -1,4 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
+import { getRequestIP } from "@tanstack/react-start/server";
 import {
   metaEventInputSchema,
   processConversionEvent,
@@ -16,4 +17,15 @@ import {
  */
 export const sendFacebookConversionEvent = createServerFn({ method: "POST" })
   .inputValidator(metaEventInputSchema)
-  .handler(async ({ data }) => processConversionEvent(data));
+  .handler(async ({ data }) => {
+    // Same reasoning as in /api/track/conversion.ts: the IP has to be read
+    // off the actual request, server-side, never trusted from the client.
+    const clientIpAddress = getRequestIP({ xForwardedFor: true });
+    return processConversionEvent({
+      ...data,
+      userData: {
+        ...data.userData,
+        ...(clientIpAddress ? { clientIpAddress } : {}),
+      },
+    });
+  });

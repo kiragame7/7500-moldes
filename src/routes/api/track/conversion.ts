@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { getRequestIP } from "@tanstack/react-start/server";
 import {
   metaEventInputSchema,
   processConversionEvent,
@@ -49,8 +50,22 @@ export const Route = createFileRoute("/api/track/conversion")({
           );
         }
 
+        // The IP must come from the request itself, never from the client
+        // payload — a browser can't reliably report its own public IP, and
+        // this is one of the two parameters (with user agent) Meta calls
+        // out as the baseline for good match quality on Conversions API
+        // events. `xForwardedFor: true` is safe here because the app runs
+        // behind Vercel's proxy, which sets that header itself.
+        const clientIpAddress = getRequestIP({ xForwardedFor: true });
+
         try {
-          const result = await processConversionEvent(parsed.data);
+          const result = await processConversionEvent({
+            ...parsed.data,
+            userData: {
+              ...parsed.data.userData,
+              ...(clientIpAddress ? { clientIpAddress } : {}),
+            },
+          });
           return jsonResponse(result, 202);
         } catch (error) {
           console.warn(
