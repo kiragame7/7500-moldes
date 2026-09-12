@@ -130,7 +130,12 @@ function RootShell({ children }: { children: ReactNode }) {
                 moldesExternalId = 'moldes_' + (window.crypto && window.crypto.randomUUID ? window.crypto.randomUUID() : Date.now() + '_' + Math.random().toString(36).slice(2));
                 window.localStorage.setItem('moldes_external_id', moldesExternalId);
               }
-              fbq('init', '${META_PIXEL_ID}', { external_id: moldesExternalId });
+              var moldesCookie = function(name) { var prefix = name + '='; var item = document.cookie.split('; ').find(function(entry) { return entry.indexOf(prefix) === 0; }); return item ? decodeURIComponent(item.slice(prefix.length)) : ''; };
+              var moldesFbc = moldesCookie('_fbc');
+              var moldesFbp = moldesCookie('_fbp');
+              var moldesFbclid = new URLSearchParams(window.location.search).get('fbclid');
+              if (!moldesFbc && moldesFbclid) moldesFbc = 'fb.1.' + Date.now() + '.' + moldesFbclid;
+              fbq('init', '${META_PIXEL_ID}', { external_id: moldesExternalId, fbc: moldesFbc || undefined, fbp: moldesFbp || undefined });
               fbq('track', 'PageView', {}, { eventID: 'pageview:' + moldesExternalId });
             `,
           }}
