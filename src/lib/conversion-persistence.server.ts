@@ -13,6 +13,7 @@ export type ConversionEventInsert = {
   source: "browser" | "hotmart" | "meta_capi";
   transaction_id?: string | null;
   external_id?: string | null;
+  hotmart_xcod?: string | null;
   event_source_url?: string | null;
   referrer_url?: string | null;
   event_time: string;
@@ -69,6 +70,7 @@ const EVENT_COLUMNS = [
   "source",
   "transaction_id",
   "external_id",
+  "hotmart_xcod",
   "event_source_url",
   "referrer_url",
   "event_time",
@@ -198,9 +200,10 @@ export async function findCheckoutAttribution(externalId: string): Promise<{
             utm_source, utm_medium, utm_campaign, utm_content, utm_term,
             client_ip_address, user_agent
      from conversion_events
-     where event_name = 'InitiateCheckout' and external_id = ?
+     where event_name = 'InitiateCheckout'
+       and (external_id = ? or hotmart_xcod = ?)
      order by event_time desc limit 1`,
-    [externalId],
+    [externalId, externalId],
   );
   const data = rows[0];
   if (!data) return null;

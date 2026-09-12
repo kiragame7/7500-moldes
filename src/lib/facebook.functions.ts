@@ -57,6 +57,7 @@ export const sendFacebookConversionEvent = createServerFn({ method: "POST" })
         event_id: event.eventId,
         source: "browser",
         external_id: event.externalId ?? null,
+        hotmart_xcod: getString(event.customData?.["hotmart_xcod"]),
         event_source_url: event.eventSourceUrl,
         referrer_url: event.referrerUrl ?? null,
         event_time: (event.eventTime ?? new Date()).toISOString(),
