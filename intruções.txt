@@ -1,0 +1,307 @@
+Quero que você faça uma auditoria e correção completa do tracking da Meta nesta aplicação.
+
+IMPORTANTE: antes de alterar qualquer coisa, analise toda a implementação atual de Pixel, CAPI, UTMify, eventos e funções relacionadas. Não faça mudanças cegas.
+
+CONTEXTO DO PROBLEMA
+
+Estou usando uma página de vendas hospedada em Vercel e atualmente tenho uma implementação própria de Meta Pixel + Conversions API (CAPI).
+
+Também existe o script do UTMify na página.
+
+Ao testar a página no Meta Events Manager, estou vendo vários eventos Processados e Desduplicados para a mesma ação.
+
+Por exemplo, no evento InitiateCheckout, o Events Manager mostrou várias entradas com a mesma identificação:
+
+checkout:premium:moldes_0f366440-014a-4f77-9dac-8ecf83387417
+
+Algumas aparecem como:
+
+- Servidor → Processado
+- Servidor → Processado
+- Servidor → Desduplicado
+- Navegador → Desduplicado
+- Navegador → Processado
+- Servidor → Desduplicado
+
+Também acontece algo semelhante com ViewContent e SubscribedButtonClick.
+
+A análise da implementação indica que provavelmente existem dois sistemas fazendo tracking da Meta simultaneamente:
+
+1. Minha implementação própria:
+   Browser Pixel
+   +
+   Server-side CAPI
+
+2. UTMify:
+   script próprio de tracking
+   +
+   eventos automáticos
+   +
+   possível envio adicional de eventos para a Meta
+
+O objetivo NÃO é remover o UTMify da página.
+
+Quero continuar usando o UTMify para UTMs, atribuição e funcionalidades relacionadas.
+
+O objetivo é impedir que o UTMify e minha implementação própria fiquem disparando os mesmos eventos da Meta em paralelo.
+
+OBJETIVO FINAL
+
+Quero que exista UMA única fonte de verdade para os eventos da Meta.
+
+Minha implementação própria deve ser responsável pelos principais eventos da Meta:
+
+- PageView
+- ViewContent
+- InitiateCheckout
+- outros eventos explicitamente implementados no meu sistema
+
+A estrutura desejada é:
+
+Browser
+   ↓
+Meta Pixel
+   ↓
+event_id único
+
+e, quando houver CAPI:
+
+Browser
+   ↓
+Meta Pixel
+   +
+Server
+   ↓
+Conversions API
+   ↓
+mesmo event_id
+   ↓
+Meta faz a deduplicação Browser/Server
+
+Ou seja, para uma única ação do usuário, eu quero algo conceitualmente assim:
+
+1 ação do usuário
+
+Browser → InitiateCheckout → Processado
+Server  → InitiateCheckout → Desduplicado
+
+OU:
+
+Server  → InitiateCheckout → Processado
+Browser → InitiateCheckout → Desduplicado
+
+A ordem pode variar.
+
+O que NÃO quero:
+
+Browser → evento
+Browser → evento
+Server → evento
+Server → evento
+UTMify → evento
+UTMify → evento
+
+para a mesma ação.
+
+TAREFA
+
+1. Audite todo o código relacionado a:
+
+- Meta Pixel
+- fbq
+- CAPI
+- event_id
+- InitiateCheckout
+- ViewContent
+- PageView
+- SubscribedButtonClick
+- UTMify
+- scripts externos de tracking
+- listeners de clique
+- listeners de scroll
+- useEffect relacionados a tracking
+- funções server-side que enviam eventos para a Meta
+- qualquer inicialização duplicada do Pixel
+
+2. Descubra exatamente quais partes do projeto estão disparando cada evento.
+
+3. Identifique especificamente se o UTMify está disparando automaticamente:
+
+- ViewContent
+- InitiateCheckout
+- outros eventos da Meta
+
+e se esses eventos estão sendo enviados além da minha implementação própria.
+
+4. Mantenha o UTMify funcionando para:
+
+- UTMs
+- atribuição
+- tracking que não duplique minha implementação da Meta
+- funcionalidades que não estejam causando conflito
+
+5. Desative SOMENTE o tracking duplicado da Meta proveniente do UTMify, caso isso seja possível pela implementação atual.
+
+NÃO remova o script do UTMify inteiro sem necessidade.
+
+6. Mantenha minha implementação própria de Pixel + CAPI.
+
+7. Não altere a lógica de negócio da página.
+
+8. Não altere links de checkout.
+
+9. Não altere preços.
+
+10. Não altere UTMs.
+
+11. Não altere o design.
+
+12. Não remova eventos que sejam necessários.
+
+13. Não altere o event_id atual sem necessidade.
+
+EVENT_ID
+
+A implementação atual já utiliza IDs como:
+
+checkout:premium:moldes_0f366440-014a-4f77-9dac-8ecf83387417
+
+e IDs semelhantes para ViewContent.
+
+Quero preservar essa lógica de event_id.
+
+O mais importante é garantir que:
+
+Browser Pixel e Server CAPI, quando representam a mesma ação, utilizem o MESMO event_id.
+
+Por outro lado, ações reais diferentes devem possuir event_id diferentes.
+
+Não quero que você simplesmente crie um ID fixo para cada evento e faça todas as ações compartilharem o mesmo ID.
+
+DUPLICAÇÃO
+
+Também verifique se existe algum problema dentro da própria implementação customizada que esteja causando múltiplas chamadas do mesmo evento.
+
+Por exemplo:
+
+- múltiplos useEffect
+- listeners registrados mais de uma vez
+- componentes montados duas vezes
+- callbacks executados mais de uma vez
+- funções chamadas tanto pelo clique quanto por outro listener
+- scripts carregados duas vezes
+- Pixel inicializado mais de uma vez
+- CAPI chamada duas vezes
+- retry/reexecução sem necessidade
+
+A implementação precisa garantir que uma ação real do usuário gere somente uma ocorrência lógica do evento.
+
+IMPORTANTE SOBRE DEDUPLICAÇÃO
+
+Não quero usar a deduplicação da Meta como desculpa para deixar vários eventos sendo enviados.
+
+A Meta deve receber:
+
+1 evento Browser
++
+1 evento Server
+
+quando Browser + CAPI estiverem sendo usados.
+
+A deduplicação deve servir para unir Browser e Server, e não para mascarar múltiplos disparos do mesmo sistema.
+
+VIEWCONTENT
+
+Audite principalmente o ViewContent.
+
+Verifique se existem mecanismos automáticos do UTMify ou outros listeners disparando ViewContent por:
+
+- carregamento
+- tempo na página
+- scroll
+- seções específicas
+- interações
+
+Caso minha implementação própria já esteja controlando ViewContent, elimine os disparos redundantes.
+
+INITIATECHECKOUT
+
+Audite principalmente o InitiateCheckout.
+
+O evento deve ser disparado quando a ação correspondente realmente acontecer.
+
+Não quero múltiplos InitiateCheckout para um único clique.
+
+SUBSCRIBEDBUTTONCLICK
+
+Também audite o SubscribedButtonClick.
+
+Descubra quem está gerando esse evento e se ele está sendo enviado tanto pelo navegador quanto pelo servidor.
+
+Se ele estiver vindo de uma implementação automática que não é necessária, remova somente a duplicidade, preservando o que for útil.
+
+PROTEÇÕES
+
+Se já existem mecanismos como sessionStorage, banco de dados, unique constraint ou outras proteções contra duplicidade, preserve-os quando forem úteis.
+
+Mas não confie somente nessas proteções.
+
+Corrija a origem da duplicidade.
+
+BANCO / SERVIDOR
+
+Se houver uma tabela ou mecanismo no servidor para impedir repetição de event_id, verifique se está correto.
+
+Não quero que o servidor simplesmente aceite várias chamadas iguais e dependa da Meta para resolver tudo.
+
+TESTE FINAL
+
+Depois das alterações, faça uma auditoria lógica completa e me mostre:
+
+1. Qual era a origem de cada duplicidade encontrada.
+
+2. O que foi alterado.
+
+3. Quais arquivos foram alterados.
+
+4. Quais eventos agora são disparados pelo meu sistema.
+
+5. Quais eventos deixam de ser disparados automaticamente pelo UTMify.
+
+6. Como ficou o fluxo Browser → Pixel → Server → CAPI.
+
+7. Como ficou a geração de event_id.
+
+8. Se ainda existe algum cenário em que o mesmo evento possa ser enviado duas ou mais vezes.
+
+9. Se o UTMify continua funcionando para UTMs/atribuição.
+
+10. Se a implementação está pronta para teste no Meta Events Manager.
+
+CRITÉRIO DE SUCESSO
+
+Após a correção, ao fazer um teste limpo com uma única visita e um único clique no botão de compra, quero algo aproximadamente assim:
+
+ViewContent:
+Browser → Processado
+Server → Desduplicado
+
+InitiateCheckout:
+Browser → Processado
+Server → Desduplicado
+
+ou a ordem inversa.
+
+Não quero múltiplos eventos Processados do mesmo tipo para uma única ação.
+
+Se houver alguma limitação técnica que impeça desativar somente os eventos automáticos do UTMify, não invente uma solução.
+
+Nesse caso, explique exatamente a limitação e proponha a alternativa menos invasiva.
+
+ANTES DE IMPLEMENTAR:
+faça a auditoria do código e explique brevemente quais são as fontes de tracking encontradas.
+
+DEPOIS DA IMPLEMENTAÇÃO:
+faça uma segunda auditoria para confirmar que não existe mais tracking duplicado.
+
+Não mude nada que não esteja relacionado ao problema de tracking.
