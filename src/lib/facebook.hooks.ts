@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useCallback, useEffect } from "react";
 import { sendFacebookConversionEvent } from "./facebook.functions";
 
 const EXTERNAL_ID_KEY = "moldes_external_id";
@@ -108,7 +108,9 @@ export function getCheckoutEventId(plan: string): string {
     .trim()
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-");
-  return `checkout:${normalizedPlan}:${externalId}`;
+  // A new checkout attempt is a new logical conversion event.
+  // Browser and CAPI receive this exact same ID for that single attempt.
+  return `checkout:${normalizedPlan}:${externalId}:${createFallbackId()}`;
 }
 
 export function getViewContentEventId(section: string): string {
@@ -117,27 +119,30 @@ export function getViewContentEventId(section: string): string {
     .trim()
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-");
-  const sessionKey = `moldes_view_session_${normalizedSection}`;
-  if (typeof window !== "undefined") {
-    try {
-      const existing = window.sessionStorage.getItem(sessionKey);
-      if (existing) return `viewcontent:${normalizedSection}:${externalId}:${existing}`;
-      const token = createFallbackId();
-      window.sessionStorage.setItem(sessionKey, token);
-      return `viewcontent:${normalizedSection}:${externalId}:${token}`;
-    } catch {
-      // Tracking must never break the offer page.
-    }
-  }
+  // Generate a fresh ID for every real ViewContent action. The caller passes
+  // this same ID to Browser Pixel and Server CAPI, enabling deduplication
+  // without reusing the ID for a later action in the same session.
   return `viewcontent:${normalizedSection}:${externalId}:${createFallbackId()}`;
 }
 
-export const useFacebookConversions = () => {
-  useEffect(() => {
-    captureAttribution();
-  }, []);
+export function getPageViewEventId(): string {
+  if (typeof window === "undefined") {
+    return `pageview:${createFallbackId()}`;
+  }
 
-  const trackEvent = async (
+  const globalKey = "__moldesPageViewEventId";
+  const existing = window[globalKey];
+  if (typeof existing === "string" && existing.length > 0) {
+    return existing;
+  }
+
+  const eventId = `pageview:${getOrCreateExternalId() ?? createFallbackId()}:${createFallbackId()}`;
+  window[globalKey] = eventId;
+  return eventId;
+}
+
+export const useFacebookConversions = () => {
+  const trackEvent = useCallback(async (
     eventName: string,
     customData: Record<string, unknown> = {},
     eventId?: string,
@@ -205,7 +210,12 @@ export const useFacebookConversions = () => {
         error instanceof Error ? error.message : String(error),
       );
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    captureAttribution();
+    void trackEvent("PageView", {}, getPageViewEventId());
+  }, [trackEvent]);
 
   return { trackEvent };
 };
@@ -303,5 +313,6 @@ function createFallbackId(): string {
 declare global {
   interface Window {
     fbq?: (...args: unknown[]) => void;
+    __moldesPageViewEventId?: string;
   }
 }

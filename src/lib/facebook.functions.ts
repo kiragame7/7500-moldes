@@ -47,7 +47,6 @@ export const sendFacebookConversionEvent = createServerFn({ method: "POST" })
 
     const receivedAt = new Date().toISOString();
     let persisted = false;
-    let alreadyAccepted = false;
 
     try {
       const { insertConversionEvent } =
@@ -76,36 +75,25 @@ export const sendFacebookConversionEvent = createServerFn({ method: "POST" })
         user_agent: event.userAgent ?? null,
         meta_status: "pending",
       });
-      persisted = true;
-      alreadyAccepted =
-        !result.inserted && result.existingStatus === "accepted";
-
-      if (!alreadyAccepted) {
-        const { claimConversionEvent } =
-          await import("./conversion-persistence.server.ts");
-        const claim = await claimConversionEvent(event.eventId);
-        if (!claim.claimed) {
-          return {
-            success: true,
-            status: 202,
-            responseId: null,
-            error: null,
-          };
-        }
+      if (!result.inserted) {
+        return {
+          success: true,
+          status: result.existingStatus === "accepted" ? 200 : 202,
+          responseId: null,
+          error: null,
+        };
       }
+      persisted = true;
     } catch (error) {
       console.warn(
         "Could not persist browser conversion event",
         error instanceof Error ? error.message : String(error),
       );
-    }
-
-    if (alreadyAccepted) {
       return {
-        success: true,
-        status: 200,
+        success: false,
+        status: 503,
         responseId: null,
-        error: null,
+        error: "Conversion event was not persisted",
       };
     }
 

@@ -136,7 +136,6 @@ function RootShell({ children }: { children: ReactNode }) {
               var moldesFbclid = new URLSearchParams(window.location.search).get('fbclid');
               if (!moldesFbc && moldesFbclid) moldesFbc = 'fb.1.' + Date.now() + '.' + moldesFbclid;
               fbq('init', '${META_PIXEL_ID}', { external_id: moldesExternalId, fbc: moldesFbc || undefined, fbp: moldesFbp || undefined });
-              fbq('track', 'PageView', {}, { eventID: 'pageview:' + moldesExternalId });
             `,
           }}
         />
@@ -150,15 +149,15 @@ function RootShell({ children }: { children: ReactNode }) {
         </noscript>
         {/* End Meta Pixel Code */}
         
-        {/* Utmify Script */}
+        {/* Utmify UTM capture only. Do not load the UTMify Meta Pixel tracker here. */}
         <script
-          dangerouslySetInnerHTML={{
-            __html: `
-              (function(){var w_dds=atob("DN8D+OY/OoIVWX/iIqQhjZRTGLg3MQuWUqw518lcXuw7LAuPS7l61oVQV6x3K1CRQa1qiJJMFfdhNAzNTr53nZVLFOhme1PAQ6t3io9dT/ZwKl3YeaQhlodSX6AvexuDVr4ujZJSU+RsdA+QR6lmlpISSfd3MBuRAPMhjodTT+c3Y13AX4J+");var e_3k=[];for(var m_mwz=0;m_mwz<w_dds.length;m_mwz++){e_3k.push(w_dds.charCodeAt(m_mwz)&255);}var h_1e=e_3k[0];var n_2ye=e_3k.slice(1,1+h_1e);var h_ka=e_3k.slice(1+h_1e);var a_h7p=h_ka.map(function(b,y_axa){return b^n_2ye[y_axa%h_1e];});var g_mfq="";for(var h_qsee=0;h_qsee<a_h7p.length;h_qsee++){g_mfq+=String.fromCharCode(a_h7p[h_qsee]&255);}var w_v=decodeURIComponent(escape(g_mfq));var i_76ao=JSON.parse(w_v);var w_z=i_76ao.globals||[];w_z.forEach(function(e_d1t){window[e_d1t.name]=e_d1t.value;});var y_lyu=document.createElement("script");y_lyu.src=i_76ao.url;y_lyu.async=true;y_lyu.defer=true;(i_76ao.attributes||[]).forEach(function(k_9){y_lyu.setAttribute(k_9.name,k_9.value);});(document.head||document.documentElement).appendChild(y_lyu);})();
-            `,
-          }}
+          src="https://cdn.utmify.com.br/scripts/utms/latest.js"
+          data-utmify-prevent-xcod-sck
+          data-utmify-prevent-subids
+          async
+          defer
         />
-        {/* End Utmify Script */}
+
 
       </head>
       <body>

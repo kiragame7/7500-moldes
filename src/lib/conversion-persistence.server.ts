@@ -99,7 +99,9 @@ export async function insertConversionEvent(
 ): Promise<{ inserted: boolean; existingStatus?: string | null }> {
   const placeholders = EVENT_COLUMNS.map(() => "?").join(", ");
   const values = EVENT_COLUMNS.map((column) =>
-    column === "received_at"
+    column === "meta_status" && event.source === "browser"
+      ? "processing"
+      : column === "received_at"
       ? (event.received_at ?? new Date().toISOString())
       : (event[column] ?? null),
   );
