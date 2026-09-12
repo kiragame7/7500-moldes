@@ -1,5 +1,51 @@
 import { useEffect } from "react";
-import { sendFacebookConversionEvent } from "./facebook.functions";
+
+const CONVERSION_ENDPOINT = "/api/track/conversion";
+
+/**
+ * Sends the conversion event in a way that survives the page navigating away
+ * right after the click (checkout buttons open Hotmart via target="_blank").
+ *
+ * `navigator.sendBeacon` is the browser-native tool for exactly this: it's
+ * guaranteed to still deliver the request even if the page is unloaded a
+ * moment later. Where it's unavailable, we fall back to
+ * `fetch(..., { keepalive: true })`, which offers the same guarantee (for
+ * payloads under ~64KB, which conversion events always are).
+ *
+ * This replaced a plain `await sendFacebookConversionEvent(...)` call, which
+ * was a normal (non-keepalive) fetch under the hood — mobile browsers and
+ * in-app browsers (Instagram/Facebook) were killing that request before it
+ * completed, so InitiateCheckout never reached the Conversions API on mobile
+ * even though it worked fine on desktop.
+ */
+function sendConversionBeacon(payload: Record<string, unknown>): void {
+  if (typeof window === "undefined") return;
+  const body = JSON.stringify(payload);
+
+  try {
+    if (typeof navigator !== "undefined" && navigator.sendBeacon) {
+      const blob = new Blob([body], { type: "application/json" });
+      const queued = navigator.sendBeacon(CONVERSION_ENDPOINT, blob);
+      if (queued) return;
+    }
+  } catch {
+    // fall through to fetch keepalive below
+  }
+
+  if (typeof fetch === "function") {
+    fetch(CONVERSION_ENDPOINT, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body,
+      keepalive: true,
+    }).catch((error) => {
+      console.warn(
+        "Failed to send conversion event",
+        error instanceof Error ? error.message : String(error),
+      );
+    });
+  }
+}
 
 const EXTERNAL_ID_KEY = "moldes_external_id";
 const ATTRIBUTION_KEY = "moldes_attribution_v1";
@@ -172,39 +218,28 @@ export const useFacebookConversions = () => {
       });
     }
 
-    try {
-      await sendFacebookConversionEvent({
-        data: {
-          eventName,
-          eventSourceUrl:
-            typeof window !== "undefined"
-              ? window.location.href
-              : "https://moldes7500-jpvetvra.manus.space/",
-          eventId: resolvedEventId,
-          userData: {
-            ...(attribution?.externalId
-              ? { externalId: attribution.externalId }
-              : {}),
-            ...(attribution?.fbc ? { fbc: attribution.fbc } : {}),
-            ...(attribution?.fbp ? { fbp: attribution.fbp } : {}),
-            userAgent:
-              typeof navigator !== "undefined"
-                ? navigator.userAgent
-                : undefined,
-          },
-          referrerUrl:
-            typeof document !== "undefined" && document.referrer
-              ? document.referrer
-              : undefined,
-          customData: enrichedData,
-        },
-      });
-    } catch (error) {
-      console.warn(
-        "Failed to send conversion event",
-        error instanceof Error ? error.message : String(error),
-      );
-    }
+    sendConversionBeacon({
+      eventName,
+      eventSourceUrl:
+        typeof window !== "undefined"
+          ? window.location.href
+          : "https://moldes7500-jpvetvra.manus.space/",
+      eventId: resolvedEventId,
+      userData: {
+        ...(attribution?.externalId
+          ? { externalId: attribution.externalId }
+          : {}),
+        ...(attribution?.fbc ? { fbc: attribution.fbc } : {}),
+        ...(attribution?.fbp ? { fbp: attribution.fbp } : {}),
+        userAgent:
+          typeof navigator !== "undefined" ? navigator.userAgent : undefined,
+      },
+      referrerUrl:
+        typeof document !== "undefined" && document.referrer
+          ? document.referrer
+          : undefined,
+      customData: enrichedData,
+    });
   };
 
   return { trackEvent };

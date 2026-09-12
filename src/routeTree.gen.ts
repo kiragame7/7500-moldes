@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApiPublicFacebookWebhookRouteImport } from './routes/api/public/facebook-webhook'
+import { Route as ApiTrackConversionRouteImport } from './routes/api/track/conversion'
 import { Route as ApiWebhooksHotmartRouteImport } from './routes/api/webhooks/hotmart'
 
 const IndexRoute = IndexRouteImport.update({
@@ -24,6 +25,11 @@ const ApiPublicFacebookWebhookRoute =
     path: '/api/public/facebook-webhook',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiTrackConversionRoute = ApiTrackConversionRouteImport.update({
+  id: '/api/track/conversion',
+  path: '/api/track/conversion',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiWebhooksHotmartRoute = ApiWebhooksHotmartRouteImport.update({
   id: '/api/webhooks/hotmart',
   path: '/api/webhooks/hotmart',
@@ -33,31 +39,47 @@ const ApiWebhooksHotmartRoute = ApiWebhooksHotmartRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/api/public/facebook-webhook': typeof ApiPublicFacebookWebhookRoute
+  '/api/track/conversion': typeof ApiTrackConversionRoute
   '/api/webhooks/hotmart': typeof ApiWebhooksHotmartRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/api/public/facebook-webhook': typeof ApiPublicFacebookWebhookRoute
+  '/api/track/conversion': typeof ApiTrackConversionRoute
   '/api/webhooks/hotmart': typeof ApiWebhooksHotmartRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/api/public/facebook-webhook': typeof ApiPublicFacebookWebhookRoute
+  '/api/track/conversion': typeof ApiTrackConversionRoute
   '/api/webhooks/hotmart': typeof ApiWebhooksHotmartRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/api/public/facebook-webhook' | '/api/webhooks/hotmart'
+  fullPaths:
+    | '/'
+    | '/api/public/facebook-webhook'
+    | '/api/track/conversion'
+    | '/api/webhooks/hotmart'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/api/public/facebook-webhook' | '/api/webhooks/hotmart'
+  to:
+    | '/'
+    | '/api/public/facebook-webhook'
+    | '/api/track/conversion'
+    | '/api/webhooks/hotmart'
   id:
-    '__root__' | '/' | '/api/public/facebook-webhook' | '/api/webhooks/hotmart'
+    | '__root__'
+    | '/'
+    | '/api/public/facebook-webhook'
+    | '/api/track/conversion'
+    | '/api/webhooks/hotmart'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ApiPublicFacebookWebhookRoute: typeof ApiPublicFacebookWebhookRoute
+  ApiTrackConversionRoute: typeof ApiTrackConversionRoute
   ApiWebhooksHotmartRoute: typeof ApiWebhooksHotmartRoute
 }
 
@@ -77,6 +99,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicFacebookWebhookRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/track/conversion': {
+      id: '/api/track/conversion'
+      path: '/api/track/conversion'
+      fullPath: '/api/track/conversion'
+      preLoaderRoute: typeof ApiTrackConversionRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/webhooks/hotmart': {
       id: '/api/webhooks/hotmart'
       path: '/api/webhooks/hotmart'
@@ -90,6 +119,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ApiPublicFacebookWebhookRoute: ApiPublicFacebookWebhookRoute,
+  ApiTrackConversionRoute: ApiTrackConversionRoute,
   ApiWebhooksHotmartRoute: ApiWebhooksHotmartRoute,
 }
 export const routeTree = rootRouteImport
